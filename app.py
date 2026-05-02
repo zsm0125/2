@@ -3,6 +3,145 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import hashlib
+import re
+import os
+
+# ==================== 用户认证模块 ====================
+USER_DATA_FILE = "users.csv"
+
+def hash_password(pwd):
+    return hashlib.sha256(pwd.encode()).hexdigest()
+
+def init_user_db():
+    if not os.path.exists(USER_DATA_FILE):
+        df = pd.DataFrame(columns=["username", "email", "phone", "password"])
+        df.to_csv(USER_DATA_FILE, index=False)
+    else:
+        df = pd.read_csv(USER_DATA_FILE)
+        if "email" not in df.columns:
+            df["email"] = ""
+        if "phone" not in df.columns:
+            df["phone"] = ""
+        df.to_csv(USER_DATA_FILE, index=False)
+
+def is_valid_email(email):
+    pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    return re.match(pattern, email) is not None
+
+def is_valid_phone(phone):
+    pattern = r'^1[3-9]\d{9}$'
+    return re.match(pattern, phone) is not None
+
+def register_user(username, password, email="", phone=""):
+    df = pd.read_csv(USER_DATA_FILE)
+    if username in df["username"].values:
+        return False, "用户名已存在"
+    if email and email in df["email"].values:
+        return False, "邮箱已被注册"
+    if phone and phone in df["phone"].values:
+        return False, "手机号已被注册"
+    new_row = pd.DataFrame({
+        "username": [username],
+        "email": [email],
+        "phone": [phone],
+        "password": [hash_password(password)]
+    })
+    df = pd.concat([df, new_row], ignore_index=True)
+    df.to_csv(USER_DATA_FILE, index=False)
+    return True, "注册成功"
+
+def check_login(identifier, password):
+    df = pd.read_csv(USER_DATA_FILE)
+    hashed = hash_password(password)
+    for col in ["username", "email", "phone"]:
+        if identifier in df[col].values:
+            row = df[df[col] == identifier].iloc[0]
+            if row["password"] == hashed:
+                return True, row["username"]
+    return False, None
+
+def guest_login():
+    st.session_state["logged_in"] = True
+    st.session_state["username"] = "访客（试用模式）"
+    st.session_state["is_guest"] = True
+    st.rerun()
+
+def logout():
+    for key in ["logged_in", "username", "is_guest", "in_main_system"]:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.rerun()
+
+def login_register():
+    st.title("🔐 地铁房价数据分析系统")
+    login_method = st.radio("选择登录方式", ["账号登录", "手机号登录", "访客试用"], horizontal=True)
+
+    if login_method == "账号登录":
+        tab1, tab2 = st.tabs(["登录", "注册"])
+        with tab1:
+            with st.form("login_form_account"):
+                identifier = st.text_input("用户名 / 邮箱")
+                pwd = st.text_input("密码", type="password")
+                submitted = st.form_submit_button("登录")
+                if submitted:
+                    if not identifier or not pwd:
+                        st.error("请填写完整")
+                    else:
+                        ok, username = check_login(identifier, pwd)
+                        if ok:
+                            st.session_state["logged_in"] = True
+                            st.session_state["username"] = username
+                            st.session_state["is_guest"] = False
+                            st.rerun()
+                        else:
+                            st.error("用户名/邮箱或密码错误")
+        with tab2:
+            with st.form("register_form_account"):
+                new_user = st.text_input("用户名")
+                new_email = st.text_input("邮箱（可选）")
+                new_pwd = st.text_input("密码", type="password")
+                confirm_pwd = st.text_input("确认密码", type="password")
+                reg_sub = st.form_submit_button("注册")
+                if reg_sub:
+                    if not new_user or not new_pwd:
+                        st.error("用户名和密码不能为空")
+                    elif new_pwd != confirm_pwd:
+                        st.error("两次密码不一致")
+                    elif new_email and not is_valid_email(new_email):
+                        st.error("邮箱格式不正确")
+                    else:
+                        ok, msg = register_user(new_user, new_pwd, email=new_email)
+                        if ok:
+                            st.success("注册成功！请登录")
+                        else:
+                            st.error(msg)
+
+    elif login_method == "手机号登录":
+        with st.form("login_form_phone"):
+            phone = st.text_input("手机号")
+            pwd = st.text_input("密码", type="password")
+            submitted = st.form_submit_button("登录")
+            if submitted:
+                if not phone or not pwd:
+                    st.error("请填写完整")
+                elif not is_valid_phone(phone):
+                    st.error("手机号格式不正确")
+                else:
+                    ok, username = check_login(phone, pwd)
+                    if ok:
+                        st.session_state["logged_in"] = True
+                        st.session_state["username"] = username
+                        st.session_state["is_guest"] = False
+                        st.rerun()
+                    else:
+                        st.error("手机号或密码错误")
+        st.caption("还没有账号？请使用「账号登录」中的注册功能，并填写手机号")
+
+    else:  # 访客试用
+        st.info("无需注册，一键进入体验模式。部分功能可能受限（如数据导出）")
+        if st.button("🔓 一键试用"):
+            guest_login()
 
 # ==================== 页面配置 ====================
 st.set_page_config(
@@ -51,7 +190,6 @@ TRANSFER_STATIONS = {
     "福州": ["南门兜", "东街口", "树兜", "金山", "紫阳", "福州火车站", "前屿", "董屿·福建师大"]
 }
 
-
 def is_transfer_station(city, station_name):
     """判断是否为换乘站"""
     if city not in TRANSFER_STATIONS:
@@ -60,7 +198,6 @@ def is_transfer_station(city, station_name):
         if ts in station_name:
             return True
     return False
-
 
 # ==================== 数据加载与处理函数 ====================
 @st.cache_data
@@ -71,7 +208,6 @@ def load_data(uploaded_file):
         df = pd.DataFrame(columns=['city', 'sale_price_num', 'distance_to_station',
                                    'distance_bin', 'community_district', 'station_name'])
     return df
-
 
 def preprocess(df):
     required = ['sale_price_num', 'distance_to_station', 'distance_bin',
@@ -90,10 +226,8 @@ def preprocess(df):
         order = ['0-500米', '500-1000米', '1000-1500米', '1500-2000米', '2000米以外']
         order = [o for o in order if o in df['distance_bin'].unique()]
         df['distance_bin'] = pd.Categorical(df['distance_bin'], categories=order, ordered=True)
-    # 添加换乘站标记
     df['is_transfer'] = df.apply(lambda row: is_transfer_station(row['city'], row['station_name']), axis=1)
     return df
-
 
 def remove_outliers(df, method='iqr', upper_limit=None):
     if method == 'none' or len(df) == 0:
@@ -118,22 +252,17 @@ def remove_outliers(df, method='iqr', upper_limit=None):
     removed = len(df) - mask.sum()
     return df[mask].copy(), removed, low, high
 
-
-# ==================== 主分析系统 ====================
+# ==================== 主分析系统（导航在顶部） ====================
 def main_analysis_system():
     with st.sidebar:
         st.image("https://img.icons8.com/color/96/000000/subway.png", width=80)
-        st.markdown("### 欢迎，访客")
+        st.markdown(f"### 欢迎，{st.session_state.get('username', '用户')}")
+        if st.button("🚪 退出登录"):
+            logout()
         if st.button("🏠 返回首页"):
             st.session_state.in_main_system = False
             st.rerun()
 
-        st.markdown("---")
-        menu = st.radio(
-            "功能导航",
-            ["📊 数据概览", "📏 距离分析", "🚉 站点类型分析", "🏙️ 城市对比", "📋 数据详情"],
-            index=0
-        )
         st.markdown("---")
         st.subheader("数据设置")
         uploaded_file = st.file_uploader("上传CSV数据文件", type=["csv"])
@@ -148,6 +277,7 @@ def main_analysis_system():
         method_map = {'不过滤': 'none', 'IQR法（1.5倍四分位距）': 'iqr', '固定上限法': 'cap'}
         method = method_map[outlier_method]
 
+        # 数据加载与预处理
         df_raw = load_data(uploaded_file)
         if df_raw is None or df_raw.empty:
             st.warning("请上传数据文件")
@@ -156,6 +286,7 @@ def main_analysis_system():
         if df_clean is None:
             return
 
+        # 地区选择
         cities = sorted(df_clean['city'].dropna().unique())
         options = ["全部"]
         for city in cities:
@@ -173,6 +304,7 @@ def main_analysis_system():
             filter_city = parts[0]
             filter_district = None if parts[1] == "全部" else parts[1]
 
+        # 异常值剔除
         df_filtered, removed, low_th, high_th = remove_outliers(df_clean, method=method, upper_limit=upper_limit)
         if removed > 0:
             st.success(f"已剔除 {removed} 条异常值 (阈值: {low_th:.0f} - {high_th:.0f})")
@@ -199,7 +331,12 @@ def main_analysis_system():
         return
     df = st.session_state.df
 
-    if menu == "📊 数据概览":
+    # ========== 功能导航：使用顶部 tabs ==========
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["📊 数据概览", "📏 距离分析", "🚉 站点类型分析", "🏙️ 城市对比", "📋 数据详情"]
+    )
+
+    with tab1:
         st.header("核心统计指标")
         overall = pd.DataFrame({
             '指标': ['总样本量', '平均房价', '中位数房价', '最低房价', '最高房价', '标准差'],
@@ -225,7 +362,7 @@ def main_analysis_system():
         fig_box = px.box(df, y='sale_price_num', title="房价箱线图（异常值检测）")
         st.plotly_chart(fig_box, use_container_width=True)
 
-    elif menu == "📏 距离分析":
+    with tab2:
         st.header("地铁站点步行距离对房价的影响")
         if 'distance_bin' in df.columns and df['distance_bin'].notna().any():
             dist_summary = []
@@ -266,14 +403,11 @@ def main_analysis_system():
         else:
             st.info("数据缺少距离区间字段")
 
-    elif menu == "🚉 站点类型分析":
+    with tab3:
         st.header("换乘站与普通站溢价特征对比")
-
-        # 检查是否有换乘站数据
         if 'is_transfer' not in df.columns or df['is_transfer'].sum() == 0:
             st.warning("当前数据中未识别到换乘站，请检查换乘站列表或站点名称。预定义的换乘站列表见代码。")
         else:
-            # 1. 整体房价分布对比（箱线图）
             fig_box_type = px.box(df, x='is_transfer', y='sale_price_num',
                                   labels={'is_transfer': '站点类型', 'sale_price_num': '房价 (元/㎡)'},
                                   title="换乘站 vs 普通站 周边房价分布对比",
@@ -281,7 +415,6 @@ def main_analysis_system():
             fig_box_type.update_xaxes(tickvals=[True, False], ticktext=['换乘站', '普通站'])
             st.plotly_chart(fig_box_type, use_container_width=True)
 
-            # 2. 按距离区间分别统计换乘站和普通站的平均房价表格
             st.subheader("各距离区间平均房价对比（元/㎡）")
             transfer_avg = df[df['is_transfer'] == True].groupby('distance_bin', observed=False)[
                 'sale_price_num'].mean().round(0)
@@ -294,13 +427,11 @@ def main_analysis_system():
                 '溢价额 (换乘-普通)': (transfer_avg.values - normal_avg.values).astype(int),
                 '溢价率 (%)': ((transfer_avg.values - normal_avg.values) / normal_avg.values * 100).round(1)
             })
-            # 格式化数值
             compare_df['换乘站均价'] = compare_df['换乘站均价'].apply(lambda x: f"{x:,}")
             compare_df['普通站均价'] = compare_df['普通站均价'].apply(lambda x: f"{x:,}")
             compare_df['溢价额 (换乘-普通)'] = compare_df['溢价额 (换乘-普通)'].apply(lambda x: f"{x:,}")
             st.table(compare_df)
 
-            # 3. 柱状图对比换乘站和普通站各距离区间均价
             plot_df = pd.DataFrame({
                 '距离区间': list(transfer_avg.index) * 2,
                 '平均房价': list(transfer_avg.values) + list(normal_avg.values),
@@ -311,15 +442,13 @@ def main_analysis_system():
                              labels={'平均房价': '房价 (元/㎡)', '距离区间': '步行距离区间'})
             st.plotly_chart(fig_bar, use_container_width=True)
 
-            # 4. 额外统计：整体平均房价对比
             avg_transfer = df[df['is_transfer'] == True]['sale_price_num'].mean()
             avg_normal = df[df['is_transfer'] == False]['sale_price_num'].mean()
             st.info(
                 f"📊 整体来看，换乘站周边住宅平均房价为 **{avg_transfer:,.0f} 元/㎡**，普通站周边为 **{avg_normal:,.0f} 元/㎡**，换乘站溢价约 **{(avg_transfer - avg_normal):,.0f} 元/㎡（{(avg_transfer / avg_normal - 1) * 100:.1f}%）**。")
 
-    elif menu == "🏙️ 城市对比":
+    with tab4:
         st.header("城市间房价对比分析")
-
         st.subheader("各城市及主要行政区平均房价")
         district_summary = df.groupby(['city', 'community_district']).agg(
             平均房价=('sale_price_num', 'mean'),
@@ -343,15 +472,17 @@ def main_analysis_system():
         else:
             st.info("当前数据仅包含一个城市")
 
-    elif menu == "📋 数据详情":
+    with tab5:
         st.header("原始数据示例（前50行）")
         display_cols = ['city', 'community_district', 'community_name', 'sale_price_num',
                         'distance_bin', 'station_name', 'is_transfer']
         exist_cols = [c for c in display_cols if c in df.columns]
         st.dataframe(df[exist_cols].head(50), use_container_width=True, hide_index=True)
-        csv = df.to_csv(index=False, encoding='utf-8-sig')
-        st.download_button("下载筛选后数据 (CSV)", data=csv, file_name="filtered_data.csv", mime="text/csv")
-
+        if st.session_state.get('is_guest', False):
+            st.warning("访客模式无法导出数据")
+        else:
+            csv = df.to_csv(index=False, encoding='utf-8-sig')
+            st.download_button("下载筛选后数据 (CSV)", data=csv, file_name="filtered_data.csv", mime="text/csv")
 
 # ==================== 论文首页 ====================
 def paper_home_page():
@@ -411,14 +542,18 @@ def paper_home_page():
     </div>
     """, unsafe_allow_html=True)
 
-
 # ==================== 主程序 ====================
 def main():
-    if st.session_state.in_main_system:
-        main_analysis_system()
+    init_user_db()
+    # 如果未登录，显示登录/注册界面
+    if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+        login_register()
     else:
-        paper_home_page()
-
+        # 已登录，根据 in_main_system 显示首页或分析系统
+        if st.session_state.in_main_system:
+            main_analysis_system()
+        else:
+            paper_home_page()
 
 if __name__ == "__main__":
     main()
