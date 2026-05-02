@@ -7,6 +7,118 @@ import hashlib
 import re
 import os
 
+# ==================== 页面配置 ====================
+st.set_page_config(
+    page_title="福建地铁地产经济数据分析系统",
+    page_icon="🚇",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ==================== 自定义CSS样式（美观性提升） ====================
+st.markdown("""
+<style>
+    /* 全局背景 */
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9edf2 100%);
+    }
+    /* 侧边栏样式 */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #2c3e50 0%, #1a2632 100%);
+        color: white;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #f0f0f0;
+    }
+    section[data-testid="stSidebar"] .stButton button {
+        background-color: #3498db;
+        color: white;
+        border-radius: 20px;
+        transition: all 0.3s;
+    }
+    section[data-testid="stSidebar"] .stButton button:hover {
+        background-color: #2980b9;
+        transform: scale(1.02);
+    }
+    /* 主标题卡片 */
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 25px;
+        border-radius: 25px;
+        color: white;
+        margin-bottom: 30px;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    /* 论文信息卡片 */
+    .paper-card {
+        background-color: white;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        border-left: 6px solid #667eea;
+        margin: 20px 0;
+        transition: transform 0.2s;
+    }
+    .paper-card:hover {
+        transform: translateY(-3px);
+    }
+    /* 装饰表情 */
+    .decoration {
+        text-align: center;
+        font-size: 2.5rem;
+        margin: 15px 0;
+    }
+    /* 标签页样式美化 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: #f8f9fa;
+        border-radius: 30px;
+        padding: 6px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 25px;
+        padding: 8px 20px;
+        font-weight: 500;
+        background-color: transparent;
+        transition: all 0.2s;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #667eea !important;
+        color: white !important;
+        box-shadow: 0 2px 8px rgba(102,126,234,0.3);
+    }
+    /* 按钮美化 */
+    .stButton button {
+        border-radius: 30px;
+        font-weight: 500;
+        transition: 0.2s;
+    }
+    .stButton button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    /* 数据表格样式 */
+    .dataframe {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    /* 成功/错误/提示框圆角 */
+    .stAlert {
+        border-radius: 15px;
+    }
+    /* 隐藏footer */
+    footer {
+        visibility: hidden;
+    }
+    /* 侧边栏选择框样式 */
+    .stSelectbox div[data-baseweb="select"] {
+        border-radius: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ==================== 用户认证模块 ====================
 USER_DATA_FILE = "users.csv"
 
@@ -74,16 +186,17 @@ def logout():
     st.rerun()
 
 def login_register():
-    st.title("🔐 地铁房价数据分析系统")
+    st.markdown('<div class="main-header"><h1>🚇 福建地铁地产经济数据分析系统</h1><p>—— 基于Python的地铁站点周边住宅价格空间分异分析</p></div>', unsafe_allow_html=True)
+    
     login_method = st.radio("选择登录方式", ["账号登录", "手机号登录", "访客试用"], horizontal=True)
 
     if login_method == "账号登录":
-        tab1, tab2 = st.tabs(["登录", "注册"])
+        tab1, tab2 = st.tabs(["🔐 登录", "📝 注册"])
         with tab1:
             with st.form("login_form_account"):
-                identifier = st.text_input("用户名 / 邮箱")
-                pwd = st.text_input("密码", type="password")
-                submitted = st.form_submit_button("登录")
+                identifier = st.text_input("用户名 / 邮箱", placeholder="请输入用户名或邮箱")
+                pwd = st.text_input("密码", type="password", placeholder="请输入密码")
+                submitted = st.form_submit_button("登录", use_container_width=True)
                 if submitted:
                     if not identifier or not pwd:
                         st.error("请填写完整")
@@ -98,30 +211,35 @@ def login_register():
                             st.error("用户名/邮箱或密码错误")
         with tab2:
             with st.form("register_form_account"):
-                new_user = st.text_input("用户名")
-                new_email = st.text_input("邮箱（可选）")
-                new_pwd = st.text_input("密码", type="password")
+                new_user = st.text_input("用户名", placeholder="需唯一")
+                new_email = st.text_input("邮箱（可选）", placeholder="example@domain.com")
+                new_phone = st.text_input("手机号（可选）", placeholder="11位手机号")
+                new_pwd = st.text_input("密码", type="password", placeholder="至少6位")
                 confirm_pwd = st.text_input("确认密码", type="password")
-                reg_sub = st.form_submit_button("注册")
+                reg_sub = st.form_submit_button("注册", use_container_width=True)
                 if reg_sub:
                     if not new_user or not new_pwd:
                         st.error("用户名和密码不能为空")
+                    elif len(new_pwd) < 6:
+                        st.error("密码长度至少6位")
                     elif new_pwd != confirm_pwd:
                         st.error("两次密码不一致")
                     elif new_email and not is_valid_email(new_email):
                         st.error("邮箱格式不正确")
+                    elif new_phone and not is_valid_phone(new_phone):
+                        st.error("手机号格式不正确（11位数字，以1开头）")
                     else:
-                        ok, msg = register_user(new_user, new_pwd, email=new_email)
+                        ok, msg = register_user(new_user, new_pwd, email=new_email, phone=new_phone)
                         if ok:
-                            st.success("注册成功！请登录")
+                            st.success("注册成功！请切换到登录页登录")
                         else:
                             st.error(msg)
 
     elif login_method == "手机号登录":
         with st.form("login_form_phone"):
-            phone = st.text_input("手机号")
-            pwd = st.text_input("密码", type="password")
-            submitted = st.form_submit_button("登录")
+            phone = st.text_input("手机号", placeholder="11位手机号")
+            pwd = st.text_input("密码", type="password", placeholder="密码")
+            submitted = st.form_submit_button("登录", use_container_width=True)
             if submitted:
                 if not phone or not pwd:
                     st.error("请填写完整")
@@ -139,50 +257,9 @@ def login_register():
         st.caption("还没有账号？请使用「账号登录」中的注册功能，并填写手机号")
 
     else:  # 访客试用
-        st.info("无需注册，一键进入体验模式。部分功能可能受限（如数据导出）")
-        if st.button("🔓 一键试用"):
+        st.info("🔓 无需注册，一键进入体验模式。部分功能可能受限（如数据导出）")
+        if st.button("🎮 一键试用", use_container_width=True):
             guest_login()
-
-# ==================== 页面配置 ====================
-st.set_page_config(
-    page_title="福建地铁地产经济数据分析系统",
-    page_icon="🚇",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# ==================== 样式 ====================
-st.markdown("""
-<style>
-    footer {visibility: hidden;}
-    section[data-testid="stSidebar"] {width: 280px;}
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 25px;
-        border-radius: 15px;
-        color: white;
-        margin-bottom: 30px;
-        text-align: center;
-    }
-    .paper-card {
-        background-color: #ffffff;
-        border-radius: 15px;
-        padding: 25px;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        border-left: 5px solid #667eea;
-        margin: 20px 0;
-    }
-    .decoration {
-        text-align: center;
-        font-size: 2.5rem;
-        margin: 15px 0;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ==================== 初始化 session ====================
-if 'in_main_system' not in st.session_state:
-    st.session_state.in_main_system = False
 
 # ==================== 预定义换乘站列表 ====================
 TRANSFER_STATIONS = {
@@ -191,7 +268,6 @@ TRANSFER_STATIONS = {
 }
 
 def is_transfer_station(city, station_name):
-    """判断是否为换乘站"""
     if city not in TRANSFER_STATIONS:
         return False
     for ts in TRANSFER_STATIONS[city]:
@@ -199,7 +275,7 @@ def is_transfer_station(city, station_name):
             return True
     return False
 
-# ==================== 数据加载与处理函数 ====================
+# ==================== 数据加载与处理 ====================
 @st.cache_data
 def load_data(uploaded_file):
     if uploaded_file is not None:
@@ -252,19 +328,18 @@ def remove_outliers(df, method='iqr', upper_limit=None):
     removed = len(df) - mask.sum()
     return df[mask].copy(), removed, low, high
 
-# ==================== 主分析系统（导航在顶部） ====================
+# ==================== 主分析系统（导航在顶部，手机号已集成） ====================
 def main_analysis_system():
     with st.sidebar:
-        st.image("https://img.icons8.com/color/96/000000/subway.png", width=80)
-        st.markdown(f"### 欢迎，{st.session_state.get('username', '用户')}")
-        if st.button("🚪 退出登录"):
+        st.markdown("### 🚇 数据控制台")
+        st.markdown(f"👋 欢迎，**{st.session_state.get('username', '用户')}**")
+        if st.button("🚪 退出登录", use_container_width=True):
             logout()
-        if st.button("🏠 返回首页"):
+        if st.button("🏠 返回首页", use_container_width=True):
             st.session_state.in_main_system = False
             st.rerun()
-
         st.markdown("---")
-        st.subheader("数据设置")
+        st.subheader("📂 数据设置")
         uploaded_file = st.file_uploader("上传CSV数据文件", type=["csv"])
         outlier_method = st.radio(
             "异常值剔除",
@@ -277,7 +352,6 @@ def main_analysis_system():
         method_map = {'不过滤': 'none', 'IQR法（1.5倍四分位距）': 'iqr', '固定上限法': 'cap'}
         method = method_map[outlier_method]
 
-        # 数据加载与预处理
         df_raw = load_data(uploaded_file)
         if df_raw is None or df_raw.empty:
             st.warning("请上传数据文件")
@@ -286,7 +360,6 @@ def main_analysis_system():
         if df_clean is None:
             return
 
-        # 地区选择
         cities = sorted(df_clean['city'].dropna().unique())
         options = ["全部"]
         for city in cities:
@@ -294,7 +367,7 @@ def main_analysis_system():
             districts = sorted(df_clean[df_clean['city'] == city]['community_district'].dropna().unique())
             for dist in districts:
                 options.append(f"{city} - {dist}")
-        selected = st.selectbox("地区选择", options=options)
+        selected = st.selectbox("🏙️ 地区选择", options=options)
 
         if selected == "全部":
             filter_city = None
@@ -304,10 +377,9 @@ def main_analysis_system():
             filter_city = parts[0]
             filter_district = None if parts[1] == "全部" else parts[1]
 
-        # 异常值剔除
         df_filtered, removed, low_th, high_th = remove_outliers(df_clean, method=method, upper_limit=upper_limit)
         if removed > 0:
-            st.success(f"已剔除 {removed} 条异常值 (阈值: {low_th:.0f} - {high_th:.0f})")
+            st.success(f"✅ 已剔除 {removed} 条异常值 (阈值: {low_th:.0f} - {high_th:.0f})")
 
         if filter_city:
             df_filtered = df_filtered[df_filtered['city'] == filter_city]
@@ -331,39 +403,37 @@ def main_analysis_system():
         return
     df = st.session_state.df
 
-    # ========== 功能导航：使用顶部 tabs ==========
+    # 顶部标签页导航
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         ["📊 数据概览", "📏 距离分析", "🚉 站点类型分析", "🏙️ 城市对比", "📋 数据详情"]
     )
 
     with tab1:
-        st.header("核心统计指标")
-        overall = pd.DataFrame({
-            '指标': ['总样本量', '平均房价', '中位数房价', '最低房价', '最高房价', '标准差'],
-            '数值': [
-                len(df),
-                f"{df['sale_price_num'].mean():.0f} 元/㎡",
-                f"{df['sale_price_num'].median():.0f} 元/㎡",
-                f"{df['sale_price_num'].min():.0f} 元/㎡",
-                f"{df['sale_price_num'].max():.0f} 元/㎡",
-                f"{df['sale_price_num'].std():.0f} 元/㎡"
-            ]
-        })
-        st.table(overall)
+        st.header("📈 核心统计指标")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("总样本量", len(df))
+        col2.metric("平均房价", f"{df['sale_price_num'].mean():.0f} 元/㎡")
+        col3.metric("中位数房价", f"{df['sale_price_num'].median():.0f} 元/㎡")
+        col4.metric("标准差", f"{df['sale_price_num'].std():.0f} 元/㎡")
+        col1, col2 = st.columns(2)
+        col1.metric("最低房价", f"{df['sale_price_num'].min():.0f} 元/㎡")
+        col2.metric("最高房价", f"{df['sale_price_num'].max():.0f} 元/㎡")
+        
+        st.subheader("🏙️ 各城市平均房价")
         city_avg = df.groupby('city')['sale_price_num'].mean().round(0).reset_index()
         city_avg.columns = ['城市', '平均房价 (元/㎡)']
-        st.subheader("各城市平均房价")
-        st.table(city_avg)
-        dist_avg = df.groupby('community_district')['sale_price_num'].mean().round(0).sort_values(ascending=False).head(
-            10).reset_index()
+        st.dataframe(city_avg, use_container_width=True, hide_index=True)
+        
+        st.subheader("🏘️ 行政区均价TOP10")
+        dist_avg = df.groupby('community_district')['sale_price_num'].mean().round(0).sort_values(ascending=False).head(10).reset_index()
         dist_avg.columns = ['行政区', '平均房价 (元/㎡)']
-        st.subheader("行政区均价TOP10")
-        st.table(dist_avg)
+        st.dataframe(dist_avg, use_container_width=True, hide_index=True)
+        
         fig_box = px.box(df, y='sale_price_num', title="房价箱线图（异常值检测）")
         st.plotly_chart(fig_box, use_container_width=True)
 
     with tab2:
-        st.header("地铁站点步行距离对房价的影响")
+        st.header("📍 地铁站点步行距离对房价的影响")
         if 'distance_bin' in df.columns and df['distance_bin'].notna().any():
             dist_summary = []
             for dist in df['distance_bin'].cat.categories:
@@ -378,35 +448,46 @@ def main_analysis_system():
                     '中位数': f"{p.median():,.0f}",
                     '价格范围': f"{p.min():,.0f} - {p.max():,.0f}"
                 })
-            st.table(pd.DataFrame(dist_summary))
+            st.dataframe(pd.DataFrame(dist_summary), use_container_width=True, hide_index=True)
+            
             dist_mean = df.groupby('distance_bin', observed=False)['sale_price_num'].mean().reset_index()
             fig_line = px.line(dist_mean, x='distance_bin', y='sale_price_num',
                                markers=True, text='sale_price_num',
                                labels={'distance_bin': '步行距离区间', 'sale_price_num': '平均房价 (元/㎡)'},
-                               title="距离衰减趋势图")
+                               title="📉 距离衰减趋势图")
             fig_line.update_traces(texttemplate='%{text:.0f}', textposition='top center')
             st.plotly_chart(fig_line, use_container_width=True)
+            
             fig_box_dist = px.box(df, x='distance_bin', y='sale_price_num',
                                   labels={'distance_bin': '步行距离区间', 'sale_price_num': '房价 (元/㎡)'},
-                                  title="各距离区间房价分布")
+                                  title="📦 各距离区间房价分布")
             st.plotly_chart(fig_box_dist, use_container_width=True)
-            fig_scatter = px.scatter(df, x='distance_to_station', y='sale_price_num',
-                                     opacity=0.6, trendline="lowess",
-                                     labels={'distance_to_station': '步行距离 (米)', 'sale_price_num': '房价 (元/㎡)'},
-                                     title="步行距离与房价散点图（含趋势线）")
+            
+            # 趋势线：若安装statsmodels可改用lowess，否则使用ols
+            try:
+                fig_scatter = px.scatter(df, x='distance_to_station', y='sale_price_num',
+                                         opacity=0.6, trendline="ols",
+                                         labels={'distance_to_station': '步行距离 (米)', 'sale_price_num': '房价 (元/㎡)'},
+                                         title="🔍 步行距离与房价散点图（含OLS趋势线）")
+            except:
+                fig_scatter = px.scatter(df, x='distance_to_station', y='sale_price_num',
+                                         opacity=0.6,
+                                         labels={'distance_to_station': '步行距离 (米)', 'sale_price_num': '房价 (元/㎡)'},
+                                         title="步行距离与房价散点图")
             st.plotly_chart(fig_scatter, use_container_width=True)
+            
             dist_counts = df['distance_bin'].value_counts().reset_index()
             dist_counts.columns = ['距离区间', '样本量']
             fig_pie = px.pie(dist_counts, names='距离区间', values='样本量',
-                             title="各距离区间样本量占比", hole=0.3)
+                             title="🥧 各距离区间样本量占比", hole=0.3)
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
-            st.info("数据缺少距离区间字段")
+            st.info("数据缺少距离区间字段，请检查CSV列名是否包含 'distance_bin'。")
 
     with tab3:
-        st.header("换乘站与普通站溢价特征对比")
+        st.header("🔄 换乘站 vs 普通站溢价特征对比")
         if 'is_transfer' not in df.columns or df['is_transfer'].sum() == 0:
-            st.warning("当前数据中未识别到换乘站，请检查换乘站列表或站点名称。预定义的换乘站列表见代码。")
+            st.warning("当前数据中未识别到换乘站，请检查换乘站列表或站点名称。")
         else:
             fig_box_type = px.box(df, x='is_transfer', y='sale_price_num',
                                   labels={'is_transfer': '站点类型', 'sale_price_num': '房价 (元/㎡)'},
@@ -416,10 +497,8 @@ def main_analysis_system():
             st.plotly_chart(fig_box_type, use_container_width=True)
 
             st.subheader("各距离区间平均房价对比（元/㎡）")
-            transfer_avg = df[df['is_transfer'] == True].groupby('distance_bin', observed=False)[
-                'sale_price_num'].mean().round(0)
-            normal_avg = df[df['is_transfer'] == False].groupby('distance_bin', observed=False)[
-                'sale_price_num'].mean().round(0)
+            transfer_avg = df[df['is_transfer'] == True].groupby('distance_bin', observed=False)['sale_price_num'].mean().round(0)
+            normal_avg = df[df['is_transfer'] == False].groupby('distance_bin', observed=False)['sale_price_num'].mean().round(0)
             compare_df = pd.DataFrame({
                 '距离区间': transfer_avg.index,
                 '换乘站均价': transfer_avg.values,
@@ -430,7 +509,7 @@ def main_analysis_system():
             compare_df['换乘站均价'] = compare_df['换乘站均价'].apply(lambda x: f"{x:,}")
             compare_df['普通站均价'] = compare_df['普通站均价'].apply(lambda x: f"{x:,}")
             compare_df['溢价额 (换乘-普通)'] = compare_df['溢价额 (换乘-普通)'].apply(lambda x: f"{x:,}")
-            st.table(compare_df)
+            st.dataframe(compare_df, use_container_width=True, hide_index=True)
 
             plot_df = pd.DataFrame({
                 '距离区间': list(transfer_avg.index) * 2,
@@ -448,8 +527,8 @@ def main_analysis_system():
                 f"📊 整体来看，换乘站周边住宅平均房价为 **{avg_transfer:,.0f} 元/㎡**，普通站周边为 **{avg_normal:,.0f} 元/㎡**，换乘站溢价约 **{(avg_transfer - avg_normal):,.0f} 元/㎡（{(avg_transfer / avg_normal - 1) * 100:.1f}%）**。")
 
     with tab4:
-        st.header("城市间房价对比分析")
-        st.subheader("各城市及主要行政区平均房价")
+        st.header("🏙️ 城市间房价对比分析")
+        st.subheader("📋 各城市及主要行政区平均房价")
         district_summary = df.groupby(['city', 'community_district']).agg(
             平均房价=('sale_price_num', 'mean'),
             样本量=('sale_price_num', 'count')
@@ -467,22 +546,22 @@ def main_analysis_system():
                 pivot = df.groupby(['city', 'distance_bin'], observed=False)['sale_price_num'].mean().round(0).unstack()
                 fig_heat = px.imshow(pivot, text_auto=True, aspect="auto",
                                      labels=dict(x="距离区间", y="城市", color="平均房价 (元/㎡)"),
-                                     title="各城市不同距离区间平均房价热力图")
+                                     title="🔥 各城市不同距离区间平均房价热力图")
                 st.plotly_chart(fig_heat, use_container_width=True)
         else:
-            st.info("当前数据仅包含一个城市")
+            st.info("当前数据仅包含一个城市，无法进行城市间对比。")
 
     with tab5:
-        st.header("原始数据示例（前50行）")
+        st.header("📄 原始数据预览")
         display_cols = ['city', 'community_district', 'community_name', 'sale_price_num',
                         'distance_bin', 'station_name', 'is_transfer']
         exist_cols = [c for c in display_cols if c in df.columns]
-        st.dataframe(df[exist_cols].head(50), use_container_width=True, hide_index=True)
+        st.dataframe(df[exist_cols].head(100), use_container_width=True, hide_index=True)
         if st.session_state.get('is_guest', False):
-            st.warning("访客模式无法导出数据")
+            st.warning("访客模式无法导出数据，请注册并登录后使用导出功能。")
         else:
             csv = df.to_csv(index=False, encoding='utf-8-sig')
-            st.download_button("下载筛选后数据 (CSV)", data=csv, file_name="filtered_data.csv", mime="text/csv")
+            st.download_button("💾 下载筛选后数据 (CSV)", data=csv, file_name="filtered_data.csv", mime="text/csv")
 
 # ==================== 论文首页 ====================
 def paper_home_page():
@@ -511,7 +590,7 @@ def paper_home_page():
     col1, col2 = st.columns(2)
     with col1:
         st.info("""
-        **系统功能**
+        **✨ 系统功能**
         - 数据上传与异常值剔除（IQR法/固定上限）
         - 步行距离分区统计（0-500米,500-1000米,1000-1500米,1500-2000米,2000米以外）
         - 距离衰减折线图/箱线图/散点图
@@ -520,7 +599,7 @@ def paper_home_page():
         """)
     with col2:
         st.success("""
-        **技术栈**
+        **🛠️ 技术栈**
         - Python + Pandas + NumPy
         - Streamlit（交互式Web框架）
         - Plotly（动态可视化）
@@ -530,14 +609,14 @@ def paper_home_page():
     st.markdown("---")
     col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
     with col_btn2:
-        if st.button("✨ 进入系统 ✨", use_container_width=True):
+        if st.button("🔍 进入系统 🔍", use_container_width=True):
             st.session_state.in_main_system = True
             st.rerun()
 
     st.markdown("""
     <div style="text-align:center; margin-top:30px; color:#666;">
         <hr>
-        <p>阳光学院 人工智能学院 | 数据科学与大数据技术 2024级</p>
+        <h4>阳光学院 人工智能学院 | 数据科学与大数据技术 2024级</h4>
         <p>© 2025 朱思明 版权所有</p>
     </div>
     """, unsafe_allow_html=True)
@@ -545,11 +624,9 @@ def paper_home_page():
 # ==================== 主程序 ====================
 def main():
     init_user_db()
-    # 如果未登录，显示登录/注册界面
     if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
         login_register()
     else:
-        # 已登录，根据 in_main_system 显示首页或分析系统
         if st.session_state.in_main_system:
             main_analysis_system()
         else:
