@@ -112,12 +112,12 @@ st.markdown("""
     footer {
         visibility: hidden;
     }
-    /* 侧边栏选择框样式 */
-    .stSelectbox div[data-baseweb="select"] {
-        border-radius: 20px;
-    }
 </style>
 """, unsafe_allow_html=True)
+
+# ==================== 初始化 session ====================
+if 'in_main_system' not in st.session_state:
+    st.session_state.in_main_system = False
 
 # ==================== 用户认证模块 ====================
 USER_DATA_FILE = "users.csv"
@@ -328,7 +328,7 @@ def remove_outliers(df, method='iqr', upper_limit=None):
     removed = len(df) - mask.sum()
     return df[mask].copy(), removed, low, high
 
-# ==================== 主分析系统（导航在顶部，手机号已集成） ====================
+# ==================== 主分析系统（导航在顶部） ====================
 def main_analysis_system():
     with st.sidebar:
         st.markdown("### 🚇 数据控制台")
@@ -463,17 +463,11 @@ def main_analysis_system():
                                   title="📦 各距离区间房价分布")
             st.plotly_chart(fig_box_dist, use_container_width=True)
             
-            # 趋势线：若安装statsmodels可改用lowess，否则使用ols
-            try:
-                fig_scatter = px.scatter(df, x='distance_to_station', y='sale_price_num',
-                                         opacity=0.6, trendline="ols",
-                                         labels={'distance_to_station': '步行距离 (米)', 'sale_price_num': '房价 (元/㎡)'},
-                                         title="🔍 步行距离与房价散点图（含OLS趋势线）")
-            except:
-                fig_scatter = px.scatter(df, x='distance_to_station', y='sale_price_num',
-                                         opacity=0.6,
-                                         labels={'distance_to_station': '步行距离 (米)', 'sale_price_num': '房价 (元/㎡)'},
-                                         title="步行距离与房价散点图")
+            # 使用 OLS 趋势线（避免 lowess 依赖）
+            fig_scatter = px.scatter(df, x='distance_to_station', y='sale_price_num',
+                                     opacity=0.6, trendline="ols",
+                                     labels={'distance_to_station': '步行距离 (米)', 'sale_price_num': '房价 (元/㎡)'},
+                                     title="🔍 步行距离与房价散点图（含OLS趋势线）")
             st.plotly_chart(fig_scatter, use_container_width=True)
             
             dist_counts = df['distance_bin'].value_counts().reset_index()
@@ -621,13 +615,15 @@ def paper_home_page():
     </div>
     """, unsafe_allow_html=True)
 
-# ==================== 主程序 ====================
+# ==================== 主程序（修复 AttributeError） ====================
 def main():
     init_user_db()
-    if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+    # 安全获取登录状态，若未设置则默认为 False
+    if not st.session_state.get("logged_in", False):
         login_register()
     else:
-        if st.session_state.in_main_system:
+        # 安全获取 in_main_system，若未设置则默认为 False
+        if st.session_state.get("in_main_system", False):
             main_analysis_system()
         else:
             paper_home_page()
